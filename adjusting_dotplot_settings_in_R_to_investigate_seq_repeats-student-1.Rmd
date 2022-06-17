@@ -1,0 +1,387 @@
+---
+title: "Adjusting dotplot setting in R to investigate sequence repeats"
+author: "Nathan Brouwer"
+date: "10/17/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this exercise we'll look at a sequence with known tandem repeats.  We'll load the data, explore it in R, then use the dotPlot() function to make various dotplots to see how changing settings for dotPlots() help make repeat patterns stand out.
+
+Add the necessary code to make this script functional.
+
+
+
+## Preliminaries
+
+### Load packages
+
+```{r}
+library(seqinr)
+library(rentrez)
+library(compbio4all)
+library(Biostrings)
+```
+
+
+
+### Get data
+
+Download sequence P73709
+```{r}
+P73709_FASTA <- rentrez::entrez_fetch(id = "P73709",
+                                      db = "protein", 
+                                      rettype="fasta")
+
+```
+
+Clean and set up sequence as vector.
+
+NOTE: no arguments besides sequence passed to fasta_cleaner() - we do this differently for pairwise alignment
+```{r}
+P73709_vector <- fasta_cleaner(P73709_FASTA)
+```
+
+Set up as 1 continuous string
+```{r}
+P73709_string <- fasta_cleaner(P73709_FASTA, 
+                               parse = F)
+
+length(P73709_string)
+```
+
+
+Compare structure of each type
+```{r}
+str(P73709_FASTA)
+str(P73709_string)
+str(P73709_vector)
+```
+
+
+## For fun - make a global pairwiser alignment
+
+Takes data in STRING form!
+```{r}
+align <- pairwiseAlignment(P73709_string, 
+                           P73709_string, 
+                           type = "global")
+
+```
+
+Look at PID
+
+```{r}
+pid(align)
+```
+
+
+## Explore vector data
+
+### Raw fasta
+
+str()
+```{r}
+str(P73709_FASTA)
+```
+
+
+### Vectors
+
+[ ]
+
+```{r}
+P73709_vector[1] 
+
+```
+
+[x:y]
+
+```{r}
+P73709_vector[1:50]
+```
+
+
+length()
+```{r}
+length(P73709_vector)
+```
+
+table()
+```{r}
+table(P73709_vector)
+```
+
+
+## Default dotplot from R
+
+Note orientation.  Any strong diagonals?
+
+```{r}
+dotPlot(P73709_vector, P73709_vector)
+```
+
+
+## Arguements of dotPlot
+
+* window size: wsize
+* window step: wstep
+* number matching within window: nmatch (the threshold)
+ 
+Default is exact match (binary): 
+
+```{r}
+dotPlot(P73709_vector, 
+        P73709_vector, 
+        wsize = 1, 
+        wstep = 1,
+        nmatch = 1)
+```
+
+
+Don't vary wstep
+```{r}
+dotPlot(P73709_vector, 
+        P73709_vector, 
+        wsize = 1, 
+        nmatch = 1)
+```
+
+
+
+main = ... sets a title
+
+I'll use "Default: wsize = 1, nmatch = 1
+```{r}
+dotPlot(P73709_vector, 
+        P73709_vector, 
+        wsize = 1, 
+        nmatch = 1, 
+        main = "Default: wsize = 1, nmatch = 1")
+```
+
+
+We can make a grid of plots with the par() command (we'll leave this as a black box for now)
+mfrow sets layout of grid
+mar sets margins
+```{r}
+# set up 2 x 2 grid, make margins things
+par(mfrow = c(2,2), 
+    mar = c(0,0,2,1))
+
+# plot 1: Defaults
+dotPlot(P73709_vector, P73709_vector, 
+        wsize = 1, 
+        nmatch = 1, 
+        main = "Defaults")
+
+# plot 2 size = 10, nmatch = 1
+dotPlot(P73709_vector, P73709_vector, 
+        wsize = 10, 
+        nmatch = 1, 
+        main = "size = 10, nmatch = 1")
+
+# plot 3: size = 10, nmatch = 5
+dotPlot(P73709_vector, P73709_vector, 
+        wsize = 10, 
+        nmatch = 5, 
+        main = "size = 10, nmatch = 5")
+
+# plot 4: size = 20, nmatch = 5
+dotPlot(P73709_vector, P73709_vector, 
+        wsize = 20,
+        nmatch = 5,
+        main = "size = 20, nmatch = 5")
+
+# reset par() - run this or other plots will be small!
+par(mfrow = c(1,1), 
+    mar = c(4,4,4,4))
+```
+
+
+
+## Dialed in
+
+ wsize = 20, 
+        wstep = 1,
+        nmatch = 5
+```{r}
+# be sure to run par - re-run just in case
+par(mfrow = c(1,1), 
+    mar = c(4,4,4,4))
+
+
+dotPlot(P73709_vector, 
+        P73709_vector
+        )
+```
+
+
+
+
+
+## Diagonal dropped
+
+Make new function 
+```{r}
+dot_plot <- function(seq1, seq2, wsize = 1, wstep = 1, nmatch = 1, col = c("white", 
+    "black"), xlab = deparse(substitute(seq1)), ylab = deparse(substitute(seq2)), 
+    ...) {
+  
+  # make sure input works
+    if (nchar(seq1[1]) > 1) 
+        stop("seq1 should be provided as a vector of single chars")
+    if (nchar(seq2[1]) > 1) 
+        stop("seq2 should be provided as a vector of single chars")
+    if (wsize < 1) 
+        stop("non allowed value for wsize")
+    if (wstep < 1) 
+        stop("non allowed value for wstep")
+    if (nmatch < 1) 
+        stop("non allowed value for nmatch")
+    if (nmatch > wsize) 
+        stop("nmatch > wsize is not allowed")
+  
+  # internal function
+    mkwin <- function(seq, wsize, wstep) {
+        sapply(seq(from = 1, to = length(seq) - wsize + 1, by = wstep), 
+            function(i) c2s(seq[i:(i + wsize - 1)]))
+    }
+    wseq1 <- mkwin(seq1, wsize, wstep)
+    wseq2 <- mkwin(seq2, wsize, wstep)
+    if (nmatch == wsize) {
+        xy <- outer(wseq1, wseq2, "==")
+    }
+    else {
+        "%==%" <- function(x, y) colSums(sapply(x, s2c) == sapply(y, 
+            s2c)) >= nmatch
+        xy <- outer(wseq1, wseq2, "%==%")
+    }
+    
+    # compile output in list
+    out <- list(x = seq(from = 1, to = length(seq1), length = length(wseq1)),
+                y = seq(from = 1, to = length(seq2), length = length(wseq2)),
+                z = xy)
+}
+
+```
+
+Use new function, save output (doesn't autoplot)
+```{r}
+my_dot_out <- dot_plot(P73709_vector,
+                       P73709_vector, 
+        wsize = 15, 
+        wstep = 1,
+        nmatch = 5)
+```
+
+Get rid of upper triangular portion
+```{r}
+my_dot_out$z[lower.tri(my_dot_out$z)] <- FALSE
+
+```
+
+Do some weird prep (don't worry about it)
+```{r}
+my_dot_out$z <- my_dot_out$z[, nrow(my_dot_out$z):1]
+```
+
+Plot using image() command
+```{r}
+# seriously - it will drive you crazy if you forget about this
+par(mfrow = c(1,1), 
+    mar = c(4,4,4,4))
+
+# plot with image()
+image(x = my_dot_out$x, 
+      y = my_dot_out$y, 
+      z = my_dot_out$z)
+```
+
+
+
+## Other examples
+
+### P24587
+
+```{r}
+P24587 <- rentrez::entrez_fetch(id = "P24587",
+                                db = "protein", 
+                                rettype="fasta")
+
+P24587 <- fasta_cleaner(P24587)
+
+length(P24587)
+
+# Use [ : ] to subset 300 to 400 
+dotPlot(P24587[300:400],
+        P24587[300:400],
+        wsize = 15, 
+        wstep = 1,
+        nmatch = 5)
+```
+
+
+
+### P02840
+
+```{r}
+P02840 <- rentrez::entrez_fetch(id = "P02840",db = "protein", rettype="fasta")
+
+P02840 <- fasta_cleaner(P02840)
+length(P02840)
+
+# set limit to 80 to 113
+dotPlot(P02840[80:113],P02840[80:113],
+        wsize = 5, 
+        wstep = 1,
+        nmatch = 5)
+
+```
+
+
+
+
+## P19246 
+
+```{r}
+
+P19246 <- rentrez::entrez_fetch(id = "P19246",
+                                db = "protein", 
+                                rettype="fasta")
+
+P19246 <- fasta_cleaner(P19246)
+length(P19246)
+
+# full
+dotPlot(P19246,P19246,
+        wsize = 1, 
+        wstep = 1,
+        nmatch = 1)
+
+# set limit to 525:550
+dotPlot(P19246[525:550],P19246[525:550],
+        wsize = 1, 
+        wstep = 1,
+        nmatch = 1)
+
+```
+
+### Q55837
+
+```{r}
+Q55837 <- rentrez::entrez_fetch(id = "Q55837",
+                                db = "protein", 
+                                rettype="fasta")
+
+Q55837 <- fasta_cleaner(Q55837)
+dotPlot(Q55837,
+        Q55837)
+```
+
+

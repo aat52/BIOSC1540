@@ -1,0 +1,60 @@
+---
+title: "Line of best fit in R"
+author: "Nathan Brouwer"
+date: "11/12/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+Here's an example of how to make a graph with a line of best fit in R
+
+Data are from Xiang et al. 2013. Identificaiton of Tibetan Specific Mutation in the Hypoxic gene EGLN1 and its contribvution to high-altitude adaptation.
+
+Make the vectors
+```{r}
+population <- c("Nyingchi","Lhasa","Ch1amdo","Chamdo2","Xigaze","Shanna","Nagari","Nagqu")
+altitude <- c(2750,3400,3500,3850,3890,3935,4700,4800)
+allele_freq <- c(0.6992, 0.6429, 0.7234, 0.6549, 0.7151, 0.7119, 0.7583, 0.7542)
+```
+
+
+Make a dataframe
+
+```{r}
+tibetdf <- data.frame(pop = population,
+                      alt = altitude,
+                      freq = allele_freq)
+```
+
+
+Make a plot with plot()
+
+```{r}
+plot(freq ~ alt, data = tibetdf)
+```
+
+Calculate line of best with with lm()
+```{r}
+lobf <- lm(freq ~ alt, data = tibetdf)
+```
+
+Get slope and intercept for line
+```{r}
+lobf_slope_int <- coef(lobf)
+```
+
+Plot data with line
+```{r}
+plot(freq ~ alt, data = tibetdf, pch = 16, xlab = "Altitude (meters)", ylab = "C allele frequency %")
+abline(lobf_slope_int, col =2, lwd = 2)
+```
+
+Calculate the correlation.  Compare to value in Table 1
+```{r}
+cor(tibetdf$freq, tibetdf$alt,method = "spearman")
+```
+

@@ -1,0 +1,51 @@
+---
+title: "Making dataframes from vectors"
+author: "Nathan Brouwer"
+date: "11/12/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Dataframe by hand
+
+Here are some vector
+
+```{r}
+prefix <-  c("NC_","NG_",
+             "NM_","NR_",
+             "NP_",
+             "NT_ / NW_", "XM_","XR_","XP_")
+type <- c(rep("known",6), rep("model",3))
+description <- c("Complete genomic molecule (Reference assembly)",
+                 "Incomplete genomic region",
+                 "mRNA","Non-coding RNA",
+                 "Protein",
+                 "Genomic contig or scaffold",
+                 "mRNA (Predicted model)",
+                 "Non-coding RNA (Predicted model)",
+                 "Protein (Predicted model)")
+  
+```
+
+We can make a dataframe from them with data.frame
+
+```{r}
+df <- data.frame(prefix,
+                 type,
+                 description)
+
+df
+```
+
+We can modify the names we want to use for the columns like this
+```{r}
+df <- data.frame(RefSeq_prefix = prefix,
+                 known_or_pred  = type,
+                 Notes = description)
+
+df
+```
+

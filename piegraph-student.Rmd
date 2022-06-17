@@ -1,0 +1,86 @@
+---
+title: "Portfolio: Pie Graphs"
+author: "Angela Tseng"
+date: "10/30/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Introduction
+
+Alice B. Popejoy and Stephanie M. Fullerton analyzed sample descriptions in GWAS catalogs in 2009, and repeated this in 2016 to serve as a comparison for different groups that participate in Genome Wide Association Studies. In 2009, most participants were of European descent and in 2016, there were more Asian participants largely due to genomic studies being done in Asian countries.
+
+## Create data
+
+Create vectors to contain the data and labels to make the pie graphs at the top of figures. 
+
+Each vector has 3 elements: European ancestry, Asian ancestry, and other non-European ancestry.  
+
+DO NOT name your vector for the labels "labels", since this is the name of an existing R function.
+
+Include new line characters in the text as needed to improve spacing.
+
+
+```{r }
+euro_non_euro1<- c(96, 3, 1)
+euro_non_euro1_labels<- c("European", "Asian", "\nOther")
+euro_non_euro2.2<- c(84, 14, 5)
+```
+
+
+Pro Tip: adding a new line character in front of the text or behind it in your labels and help you adjust spacing.  E.g. "European\n" or "\nAsian" (note - if you don't delete this instruction the preceding text will have some weird features.)
+
+## Pie graphs 
+
+1. Create a 1 x 2 grid using the command par(mfrow = c(1,2))
+1. Plot the 2009 data on the left and 2016 data on the right.
+1. This will require setting up the pie command twomce
+1. Use the argument main = ... to add a title to above the plots
+1. Set the argument init.angle = ... to -82.  Experiment with how this affects the plot.
+1. Set the argument radius = ... to 1.  Experiment with how this affects the plot.
+1. Set the argument col = ... to c(1,2,3), then experiment with different numbers.  Try to make it ugly.
+
+
+```{r }
+# set up par()
+par(mfrow = c(1,2), mar = c(2,3,1,5))
+
+#pie graphs 1
+# add main, init.angle, radius, and col
+pie(x=euro_non_euro1, labels = euro_non_euro1_labels, radius= 1, init.angle = -82, col= c(1,2,3), main= "2009")
+
+# pie graph 2
+# add main, init.angle, radius, and col
+pie(x= euro_non_euro2.2, labels= euro_non_euro1_labels, radius=1, init.angle= -82, col= c(1, 2, 3), main= "2016")
+
+```
+
+## Bar graphs
+
+If you want, you can examine this code below to see how stracked bar graphs are made
+
+```{r, eval = F}
+# data
+dat2016 <- c(14, 3,1,0.54,0.28,0.08,0.05)
+dat2016_rev <- rev(dat2016)
+barplotdata2016 <- matrix(c(dat2016_rev))
+
+# labels
+labels_x <- rev(c("Asian","African","Mixed", "Hispanic &\nLatin American",
+                        "Pacific Islander","Arab & Middle East","Native peoples"))
+
+par(mfrow = c(1,1))
+
+barplot(barplotdata2016,
+        width = 0.01, 
+        xlim = c(0,0.1),
+         axes = F,
+        col = c(1,2,3,4,5,6,7),
+        legend.text = labels_x)
+```
+
+

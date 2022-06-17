@@ -1,0 +1,83 @@
+---
+title: "Accessing data from Google Docs"
+author: "Nathan Brouwer"
+date: "11/12/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The goal of this exercise is to make you familiar with how to download data from Google Sheets and to briefly review some key concepts R functions and coding concepts.
+
+We'll do the following things
+
+* download a list of RefSeq accessions from a Google sheet
+* remove the NAs using na.omit()
+* select out all but one isoform using duplicated()
+
+## Packages 
+
+```{r}
+## Google sheets download package
+# comment this out when you are done
+# install.packages("googlesheets4")
+library(googlesheets4)
+
+# comp bio packages
+library(seqinr)
+library(rentrez)
+library(compbio4all)
+library(Biostrings)
+```
+
+
+## Download data
+
+First, we need a web address (URL) for the spreadsheet with the data.
+
+```{r}
+spreadsheet_sp <- "https://docs.google.com/spreadsheets/d/1spC_ZA3_cVuvU3e_Jfcj2nEIfzp-vaP7SA5f-qwQ1pg/edit?usp=sharing" 
+```
+
+Second, we need to make sure we tall the package we aren't interested in checking user access credentials / authorization.
+
+```{r}
+# be sure to run this!
+googlesheets4::gs4_deauth()   # <====== MUST RUN THIS
+```
+
+Third, we download our data.
+
+#### NOTE!: sometimes Google Sheets or the function gets cranky and throws this error:
+
+"Error in curl::curl_fetch_memory(url, handle = handle) : 
+ Error in the HTTP2 framing layer"
+ 
+If that happens, just re-run the code.
+
+```{r}
+# I include this again in case you missed is the first time : )
+googlesheets4::gs4_deauth()  
+
+# download
+## NOTE: if you get an error, just run the code again
+refseq_column <- read_sheet(ss = spreadsheet_sp, # the url
+           sheet = "RefSeq_prot",                # the name of the worksheet
+           range = "selenoprot!H1:H364",
+           col_names = TRUE,
+           na = "",                              # fill in empty spaces "" w/NA
+           trim_ws = TRUE)
+## NOTE: if you get an error, just run the code again
+
+# for reasons we won't get into I'm going to do this
+protein_refseq <- refseq_column$RefSeq_prot
+```
+
+Here's a snapshot of the results
+```{r}
+protein_refseq[1:10]
+```

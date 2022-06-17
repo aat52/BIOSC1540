@@ -1,0 +1,607 @@
+---
+title: "Untitled"
+author: "Nathan Brouwer"
+date: "11/10/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## TODO:Title for workflow
+
+## Prelims
+
+### Load packages
+
+```{r}
+# install.packages(googlesheets4)
+
+#What does this package do?
+library(googlesheets4)
+
+
+library(seqinr)
+library(rentrez)
+library(compbio4all)
+```
+
+## Download data
+
+Get data google
+
+### TODO: GIVE SECTION A TITLE
+
+```{r}
+# WHAT DOES THIS DO?
+googlesheets4::gs4_deauth()
+
+# WHAT IS THIS?
+spreadsheet   <- c("https://docs.google.com/spreadsheets/d/1spC_ZA3_cVuvU3e_Jfcj2nEIfzp-vaP7SA5f-qwQ1pg/edit?usp=sharing")
+
+# WHAT IS THIS DOING?
+student <- read_sheet(ss = spreadsheet,
+           sheet = "genes",
+           range = "genes!D6:D103",
+           col_names = TRUE,
+           na = "",
+           trim_ws = TRUE)
+
+# WHAT IS THIS DOING?
+genes <- read_sheet(ss = spreadsheet,
+           sheet = "genes",
+           range = "genes!B6:B103",
+           col_names = TRUE,
+           na = "",
+           trim_ws = TRUE)
+
+# WHAT IS THIS DOING?
+transcripts <- read_sheet(ss = spreadsheet,
+           sheet = "genes",
+           range = "genes!Q6:Q103",
+           col_names = TRUE,
+           na = "",
+           trim_ws = TRUE)
+
+
+# WHAT IS THIS DOING?
+proteins <- read_sheet(ss = spreadsheet,
+           sheet = "genes",
+           range = "genes!V6:V103",
+           col_names = TRUE,
+           na = "",
+           trim_ws = TRUE)
+
+# WHAT IS THIS DOING?
+proteins_length <- read_sheet(ss = spreadsheet,
+           sheet = "genes",
+           range = "genes!W6:W103",
+           col_names = TRUE,
+           na = "",
+           trim_ws = TRUE)
+
+```
+
+How did I check for "aa" appearing in length?
+How could I removed "aa"?
+
+### TODO: GIVE SECTION A TITLE
+
+NOTE: to build dataframes ALL vectors must be the same length
+```{r}
+length(student$student_1540) == length(genes$gene_name)
+```
+
+
+WHAT DOES THIS DO
+```{r}
+df <- data.frame(student = student$student_1540,
+                 genes = genes$gene_name,
+                 transcripts = transcripts$full_accession,
+                 proteins = proteins$protein_full_accession,
+                 prot_length = proteins_length$length_of_protein)
+
+```
+
+
+```{r}
+dim(df)
+summary(df)
+```
+
+
+## WHAT DOES THIS CODE DO
+
+
+Describe why the code chunk below is being run.  
+
+
+```{r}
+## NC
+# What is NC?  WHat does this code do?
+i <- grep("NC",df$transcripts)
+df$transcripts[i] <- NA
+df$proteins[grep("NC",df$proteins)] <- NA
+
+
+# P
+# What is P? WHat does this code do?
+df$transcripts[grep("P",df$transcripts)] <- NA
+
+# M, R
+# What is M and R? WHat does this code do?
+df$proteins[grep("M",df$proteins)] <- NA
+df$proteins[grep("R",df$proteins)] <- NA
+
+
+
+```
+
+
+What does this do?
+```{r}
+i <- grep("NG", df$transcripts)
+length(i)
+```
+
+What does this do?
+```{r}
+df[i, -1]
+```
+
+
+
+## WHAT DOES THIS CODE DO?
+
+
+```{r}
+summary(df$prot_length)
+
+# what does is.na() do? what does it return?
+i.NAs <- is.na(df$prot_length)
+df[i.NAs, ] 
+df$prot_length[i.NAs] <- 0
+
+# what does this could do?
+df_noNA <- na.omit(df)
+dim(df)
+dim(df_noNA)
+```
+
+
+## Set up a list
+
+```{r}
+# make the list
+## list for mRNA fastas
+## (don't worry about details)
+mRNA_fasta_list <- vector("list", length(df_noNA$genes))
+
+## list for mRNA fastas
+## (don't worry about details)
+protein_fasta_list <- vector("list", length(df_noNA$genes))
+
+# name the elements of the list
+## names()
+names(mRNA_fasta_list)    <- df_noNA$genes
+names(protein_fasta_list) <- df_noNA$genes
+
+```
+
+
+WHAT DOES THIS LIST DO?
+```{r}
+#for 
+for(i in 1:length(mRNA_fasta_list)){
+  
+  # WHAT DOES THIS DO?
+  ## WHAT DOES PASTE DO?
+  ## WHAT DOES PRINT DO?
+  msg <- paste("Downloading row",i, ", gene =", df_noNA$genes[i])
+  print(msg)
+  
+  #make a plac within the list e for the FASTA 
+  mRNA_fasta_list[[i]] <- NA
+  
+  # What does this do?
+  # what does try() do?
+  try(
+    
+    # 
+    mRNA_fasta_list[[i]] <- entrez_fetch(
+                  db = "nucleotide",
+                  id = df_noNA$transcripts[i],
+                  rettype = "fasta",
+                  silent = TRUE)
+    )
+  
+  # What does this do?
+  Sys.sleep(0.1)
+  
+}
+```
+
+
+
+Use is.na to identify any genes for which nothing downloaded.
+```{r}
+i.NA <- is.na(mRNA_fasta_list)
+mRNA_fasta_list[i.NA]
+```
+
+
+
+WHAT IS THIS DOING?
+
+```{r}
+# 
+for(i in 1:length(mRNA_fasta_list)){
+
+  print(paste("Cleaning", df$genes[i]))
+  
+  # 
+  try(
+   mRNA_fasta_list[[i]] <- fasta_cleaner(mRNA_fasta_list[[i]],
+                                          parse = T)
+  )
+}
+```
+
+
+WHAT IS THIS DOING?
+
+```{r}
+for(i in 1:nrow(df_noNA)){
+  df_noNA$mRNA_length[i] <- length(mRNA_fasta_list[[i]])
+}
+
+```
+
+
+
+WHY AM I DOING THIS?
+
+```{r}
+# WHY AM I DOING THIS?
+par(mfrow = c(1,2), 
+    mar = c(2,1,1,1))
+
+# WHAT TYPE OF PLOT?
+hist(df_noNA$mRNA_length, 
+     col = 2, 
+     main = "Histogram")
+
+# WHAT TYPE OF PLOT?
+boxplot(df_noNA$mRNA_length, 
+        main = "Boxplot")
+par(mfrow = c(1,1))
+```
+
+WHY AM I DOING THIS?
+```{r}
+i.max <- which.max(df_noNA$mRNA_length)
+df_noNA[ i.max , -1]
+```
+
+
+WHY AM I DOING THIS?
+```{r}
+i.BIG <- which(df_noNA$mRNA_length > 1000000)
+df_noNA[ i.BIG , -1]
+```
+
+Remove the really big entry using negative indexing
+
+```{r}
+df_noNA <- df_noNA[-i.BIG , ]
+```
+
+
+
+## ADVANCED - for the curious - figure this out
+
+Here's some advanced R code for those who want a challenge
+```{r}
+x <- lapply(mRNA_fasta_list, 
+                         length)
+x <- unlist(x)
+x
+```
+
+
+## GC content
+
+WHAT IS GC Content
+WHy might I care about GC content?
+
+```{r}
+# make a vectxor dfor holding GC data
+gene_GC <- rep(NA, length(df_noNA$genes))
+
+# WHAT DOES THIS FOR LOOP DO
+for(i in 1:length(gene_GC)){
+  
+print(paste("GC-ing",df_noNA$genes[i]))
+  
+  try(
+    gene_GC[i] <- seqinr::GC(mRNA_fasta_list[[i]]),
+    silent = TRUE
+      )
+}
+```
+
+Check output length
+```{r}
+length(gene_GC)
+```
+
+
+WHY DO THIS?
+```{r}
+par(mfrow = c(1,2), 
+    mar= c(1,1,1,1))
+hist(gene_GC)
+boxplot(gene_GC)
+```
+
+
+WHAT DOES THIS DO?
+```{r}
+names(df_noNA)
+ncol(df_noNA)
+
+# what does this do?
+df_noNA$gene_GC <- gene_GC
+
+
+names(df_noNA)
+ncol(df_noNA)
+```
+
+
+WHAT TYPE OF PLOT?
+```{r}
+par(mfrow = c(1,1), mar = c(2,2,2,2))
+plot(gene_GC ~ mRNA_length, data = df_noNA)
+```
+
+WHAT IS DIFFERENT ABOUT PLOTS?
+```{r}
+plot(gene_GC ~ log(mRNA_length), data = df_noNA)
+```
+
+
+MAKE LINE OF BEST FIT
+
+```{r}
+# fit equation to data
+## How do these vary here, and in the plots?
+bestfit     <- lm(gene_GC ~ mRNA_length, data = df_noNA)
+bestfit.log <- lm(gene_GC ~ log(mRNA_length), data = df_noNA)
+
+# get key parts of equation
+## eg. y = M*x + b
+bestfit.Mx.b <- coef(bestfit)
+bestfit.log.Mx.b <- coef(bestfit.log)
+
+#plot scatterplot
+par(mfrow = c(1,2))
+plot(gene_GC ~ mRNA_length, data = df_noNA)
+abline(bestfit.Mx.b)
+plot(gene_GC ~ log(mRNA_length), data = df_noNA)
+abline(bestfit_Mx_b)
+
+# 
+```
+
+
+NOTE: I didn't expect this line to slope as strong as it did.  I need to check if there could be a biological reason for this.   The trend is strongly driven by the very long sequences, which I believe are mostly genomic sequences that need to have the accessions updated to be mRNA.  This means they contain non-coding DNA (introns and UTRs)
+
+## What is going on in the next chunk
+
+```{r}
+# WHAT DOES THIS FOR LOOP DO
+
+for(i in 1:length(protein_fasta_list)){
+  
+  #
+  print(paste("Downloading row",i,", protein =", df$genes[i]))
+  
+  #
+  protein_fasta_list[[i]] <- NA
+  
+  #
+  try(protein_fasta_list[[i]] <- entrez_fetch(
+                  db = "protein",
+                  id = df_noNA$proteins[i],
+                  rettype = "fasta"),
+      silent = FALSE)
+  
+  Sys.sleep(0.1)
+  
+}
+
+# WHAT DOES THIS FOR LOOP DO
+for(i in 1:length(protein_fasta_list)){
+  
+#  
+protein_fasta_list[[i]] <- try(
+  protein_fasta_list[[i]] <- fasta_cleaner(protein_fasta_list[[i]],parse = T),
+  silent = TRUE)
+  
+}
+
+# (minor detail)
+# New list for storage
+## make copy for add new data
+protein_comp_list <- protein_fasta_list
+
+
+# WHAT DOES THIS FOR LOOP DO
+for(i in 1:length(protein_comp_list)){
+  
+  # using table to tabulate
+  ## number of each amino acid
+  ## storing in a temp object
+  temp <- table(protein_fasta_list[[i]])
+  
+  # add table to list
+  protein_comp_list[[i]] <-  temp
+  
+  # if the table does not have ALL aas
+  # ditch it and enter NA
+  if(length(temp) < 20){
+    protein_comp_list[[i]] <- rep(NA,20)
+  }
+}
+```
+
+
+An example of a table.  What was tabulated?
+```{r}
+protein_comp_list["PPARA"]
+```
+
+What am I doing here? You should be able to figure out what each line is doing
+```{r}
+protein_fasta_list[is.na(protein_fasta_list)]
+names(protein_fasta_list[is.na(protein_fasta_list)])
+length(protein_fasta_list[is.na(protein_fasta_list)])
+
+
+```
+
+ [1] "LCT"     "FADS1"   "FADS2"   "TRIP4"   "TRPV6"   "CREBRF"  "ADH1B"   "TRIM5"  
+ [9] "LRRC19"  "PON2"    "OAS1"    "TLR1"    "EGLN1"   "EPAS1"   "BDKRB2"  "OCA2"   
+[17] "OCA3"    "TYRP1"   "DCT"     "TYR"     "MC1R"    "DHCR7"   "NADSYN1" "EDAR"   
+
+```{r}
+i.EDAR <- which(df_noNA$genes == "EDAR")
+df_noNA[i.EDAR,-1]
+entrez_fetch(
+                  db = "protein",
+                  id = df_noNA$proteins[i.EDAR],
+                  rettype = "fasta")
+
+```
+
+
+table() gives us what?
+```{r}
+length(table(protein_fasta_list[[1]]))
+is(table(protein_fasta_list[[1]]))
+
+table(protein_fasta_list[[1]])
+table(protein_fasta_list[[2]])
+table(protein_fasta_list[[3]])
+table(protein_fasta_list[[4]])
+table(protein_fasta_list[[10]])
+table(protein_fasta_list[["HESX1"]])
+```
+
+
+
+```{r}
+length(protein_comp_list)
+
+# get rid of NAs
+protein_comp_list <- na.omit(protein_comp_list)
+length(protein_comp_list)
+
+names(protein_comp_list)
+
+# this is a trick to check the lengths of everything
+## two have 21!
+lapply(protein_comp_list, length)[5:6]
+
+# THe are two proteins the have Selenocystein in them
+# an alt aa that can get integrated under special circumstances
+protein_comp_list[5]
+protein_comp_list[6]
+
+# its possible that there coudl be 21 due to the presence of X
+# as an error / ambiguity cod
+
+# stack everything on top of themselves with rbind()
+# make initial stack 
+# code will use if() to skip in case anything is NOT
+# equal to 21
+df.comp <- rbind(protein_comp_list[[1]],
+      protein_comp_list[[2]])
+
+# loop over list to stack
+for(i in 3:length(protein_comp_list)){
+  if(length(protein_comp_list[[i]]) == 20){
+    df.comp <- rbind(x, protein_comp_list[[i]])
+  }
+  
+   if(length(protein_comp_list[[i]]) != 20){
+     df.comp <- rbind(x, rep(NA,20))
+   }
+  
+}
+
+dim(df.comp)
+length(protein_comp_list)
+names(df.comp) <- names(protein_comp_list)
+
+```
+
+
+
+The amino acids FYMINK tend to be coded by GC rich codons
+```{r}
+df.comp[,c("F","Y","M","I","N","K")]
+
+dim(df.comp)
+```
+
+
+Let's determine their freuency in our sample
+```{r}
+# vectors to store stuff
+## totall AAs
+aa.tot <- rep(NA, nrow(df.comp))
+
+## FYNMINK
+FYNMINK.tot <- rep(NA, nrow(df.comp))
+
+
+```
+
+```{r}
+#loop - sum up total number of amino acids
+for(i in 1:nrow(df.comp)){
+  aa.tot[i] <- sum(df.comp[i,])
+}
+```
+
+Distribution of amino acids
+```{r}
+hist(aa.tot)
+mean(aa.tot, na.rm = TRUE)
+```
+
+
+Determine just the FYMINKs 
+```{r}
+# 
+FYMINKs <- c("F","Y","M","I","N","K")
+for(i in 1:nrow(df.comp)){
+  FYNMINK.tot[i] <- sum(df.comp[i,FYMINKs])
+}
+
+# 
+FYNMINK.prop <- FYNMINK.tot/aa.tot
+
+```
+
+Distribution of amino acidsFYNMINK.prop
+```{r}
+hist(FYNMINK.prop)
+mean(FYNMINK.prop, na.rm = TRUE)
+```
+

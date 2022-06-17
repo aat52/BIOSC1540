@@ -1,0 +1,445 @@
+---
+title: "Accessing data from Google Docs"
+author: "Nathan Brouwer"
+date: "11/12/2021"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The goal of this exercise is to make you familiar with how to download data from Google Sheets and to briefly review some key concepts R functions and coding concepts.
+
+We'll do the following things
+
+
+## Packages 
+
+```{r}
+## Google sheets download package
+# comment this out when you are done
+# install.packages("googlesheets4")
+library(googlesheets4)
+
+# comp bio packages
+library(seqinr)
+library(rentrez)
+library(compbio4all)
+library(Biostrings)
+```
+
+
+## Download data
+
+WHAT IS THIS?
+
+```{r}
+spreadsheet_sp <- "https://docs.google.com/spreadsheets/d/1spC_ZA3_cVuvU3e_Jfcj2nEIfzp-vaP7SA5f-qwQ1pg/edit?usp=sharing" 
+```
+
+WHAT DOES THIS DO?
+
+```{r}
+# be sure to run this!
+googlesheets4::gs4_deauth()   # <====== MUST RUN THIS
+```
+
+Third, we download our data.
+
+#### NOTE!: sometimes Google Sheets or the function gets cranky and throws this error:
+
+"Error in curl::curl_fetch_memory(url, handle = handle) : 
+ Error in the HTTP2 framing layer"
+ 
+If that happens, just re-run the code.
+
+```{r}
+# I include this again in case you missed is the first time : )
+googlesheets4::gs4_deauth()  
+
+# download
+## NOTE: if you get an error, just run the code again
+refseq_column <- read_sheet(ss = spreadsheet_sp, # the url
+           sheet = "RefSeq_prot",                # the name of the worksheet
+           range = "selenoprot!H1:H364",
+           col_names = TRUE,
+           na = "",                              # fill in empty spaces "" w/NA
+           trim_ws = TRUE)
+## NOTE: if you get an error, just run the code again
+
+# for reasons we won't get into I'm going to do this
+protein_refseq <- refseq_column$RefSeq_prot
+```
+
+Results from data
+```{r}
+protein_refseq[1:10]
+```
+
+
+Getting the data from another column
+```{r}
+# download
+## NOTE: if you get an error, just run the code again
+gene_name_column <- read_sheet(ss = spreadsheet_sp, # the url
+           sheet = "gene",                # the name of the worksheet
+           range = "selenoprot!A1:A364",
+           col_names = TRUE,
+           na = "",                              # fill in empty spaces "" w/NA
+           trim_ws = TRUE)
+## NOTE: if you get an error, just run the code again
+
+# for reasons we won't get into I'm going to do this
+gene <- gene_name_column$gene
+```
+
+
+
+## Checking the data
+
+Download a vector of character data and check the type, class, and length 
+```{r}
+is(protein_refseq)
+class(protein_refseq)
+length(protein_refseq)
+protein_refseq[1:10]
+```
+
+
+
+Checking for NAs using is.na
+```{r}
+is.na(protein_refseq)
+```
+
+
+
+Count up the number of false using table(). In this case, false means it is not NA
+```{r}
+table(is.na(protein_refseq))
+```
+
+An alternative way to count the number of true in protein_refseq
+```{r}
+# ...
+temp <- is.na(protein_refseq)
+
+# ....
+protein_refseq[temp]
+
+temp2 <- protein_refseq[temp]
+
+# ...
+length(temp2)
+```
+
+## Make a Dataframe
+
+Put the information into a data frame and store it into a vector for analysis
+```{r}
+seleno_df <- data.frame(gene = gene,
+                        protein_refseq = protein_refseq)
+```
+
+Look at the summary of the dataframe and return the first part of the dataframe through head()
+```{r}
+summary(seleno_df)
+head(seleno_df)
+```
+
+
+## Removing NAs
+
+Remove NAs using na.omit
+```{r}
+# omit NAs
+seleno_df_noNA <- na.omit(seleno_df)
+
+# check length- should be shorter
+dim(seleno_df)
+dim(seleno_df_noNA)
+
+
+```
+
+## Selecting one isoform
+
+The same gene can appear multiple times because multiple isoforms are listed.
+
+```{r}
+head(seleno_df_noNA)
+```
+
+
+The function unique() selects just one row for each gene
+```{r}
+genes_unique <- unique(seleno_df_noNA$gene)
+length(genes_unique)
+genes_unique
+
+```
+
+unique() just gives us the unique elements.  A related function, duplicated(), gives us the location of **duplicated** elements in the vector.  FALSE means "not duplicated yet" or "first instance so far".
+
+```{r}
+i.dups <- duplicated(seleno_df_noNA$gene)
+```
+
+We can remove the duplicates using a form of reverse indexing where the "!" means "not".  (You don't need to know this for the exam)
+
+```{r}
+seleno_df_noNA[!i.dups, ]
+```
+Make a dataframe of non-duplicated genes
+
+```{r}
+seleno_df_noDups <- seleno_df_noNA[!i.dups, ]
+dim(seleno_df_noDups)
+```
+
+
+## Selecting two random sequences
+
+Let's select 2 random sequences to work with.  We'll use WHICH FUNCTION? to select a random index number to get
+
+First, lets make a vector that contains a unique number for each row of data
+
+```{r}
+indices <- 1:nrow(seleno_df_noDups)
+```
+
+This would do the same thing
+```{r}
+# with dim
+indices <- 1:dim(seleno_df_noDups)[1]
+
+# with length
+indices <- 1:length(seleno_df_noDups$gene)
+```
+
+or hard-coded
+```{r}
+indices <- 1:37
+```
+
+
+We can then use sample()  to select 2 random numbers from this vector.
+
+For x = we'll use our vector of indices (1 to 37).  For size we'll use 2, since we want to pull out just 2 numbers.  For replace we'll use WHAT? since we don't want to be ale to select the same number twice.
+```{r}
+i.random.genes <- sample(x = indices,
+                         size = 2,
+                         replace = FALSE)
+```
+
+Hard coded this would be
+```{r}
+i.random.genes <- sample(x = c(1:37),
+                         size = 2,
+                         replace = FALSE)
+```
+
+
+This gives me two indices values.
+```{r}
+i.random.genes
+```
+
+
+I can now use these index values to pull out two rows of data 
+```{r}
+seleno_df_noNA[i.random.genes, ]
+```
+
+Hard coded, this would be something like this for whichever genes happen to have been selected
+```{r}
+seleno_df_noNA[c(37,15), ]
+```
+
+
+
+## Downloading genes
+
+I will now download the two FASTA files. Using the accession NP_060915.2 and NP_001316384.1
+
+```{r}
+rentrez::entrez_fetch(id = "NP_060915.2",
+                      db = "protein",
+                      rettype = "fasta")
+
+rentrez::entrez_fetch(id = "NP_001316384.1",
+                      db = "protein",
+                      rettype = "fasta")
+```
+
+
+
+Storing information into vectors
+
+```{r}
+prot1 <- rentrez::entrez_fetch(id = "NP_060915.2",
+                      db = "protein",
+                      rettype = "fasta")
+
+prot2 <- rentrez::entrez_fetch(id = "NP_001316384.1",
+                      db = "protein",
+                      rettype = "fasta")
+```
+
+I can put them into a list like this
+
+```{r}
+# make the WHAT?
+seleno_thingy <- vector("list", 1)
+
+
+# add the first fasta
+seleno_thingy[[1]] <- prot1
+
+# See the result
+seleno_thingy
+
+# add the first fasta
+seleno_thingy[[2]] <- prot2
+
+# see the result
+seleno_thingy
+
+# WHAT DOES THIS DO?
+names(seleno_thingy) <- c("prot1", "prot2")
+
+#Output
+seleno_thingy
+```
+
+
+Elements of the list are accessed like this
+```{r}
+seleno_thingy[[1]]
+```
+
+I'll clean them with fasta_cleaner()
+
+```{r}
+# first, make a copy of the list for storing the clean data
+## I'm just going to copy over the old data
+seleno_thingy_clean <- seleno_thingy
+
+
+# HOW TO MAKE THIS MORE COMPACT?
+for(i in 1:length(seleno_thingy_clean)){
+   clean_fasta_temp <- compbio4all::fasta_cleaner(seleno_thingy[[i]],
+                                                       parse = T)
+  
+  seleno_thingy_clean[[i]] <- clean_fasta_temp
+}
+
+```
+
+Now the data is more organized and readable
+```{r}
+seleno_thingy_clean
+```
+
+Each element of the list is a vector of character data
+```{r}
+class(seleno_thingy_clean[[1]])
+is(seleno_thingy_clean[[1]])
+is.vector(seleno_thingy_clean[[1]])
+```
+
+## Make an dotplot
+
+For old-times sake we can make a dotplot.  
+Now for a dotplot
+
+
+Taking each vector in the list and make it into a separate object.
+```{r}
+prot1_vector <- seleno_thingy_clean[[1]]
+prot2_vector <- seleno_thingy_clean[[2]]
+```
+
+We can dotplot like this
+```{r}
+seqinr::dotPlot(prot1_vector,
+                prot1_vector)
+```
+
+
+Access the direct object from the list instead of the vector
+```{r, eval = F}
+seqinr::dotPlot(seleno_thingy_clean[[1]],
+                seleno_thingy_clean[[2]])
+```
+
+
+## Pairwise alignment
+
+dotPlot likes things in a single vector, but pairwiseAlignment like a single string of characters, so as always we have to process the data.
+
+Use paste() to take everything in the vector and make it more compact (combine it) The "" removes all the individual "" and combines the items together
+```{r}
+prot1_str <- paste(seleno_thingy_clean[[1]],sep = "", collapse = "")
+prot2_str <- paste(seleno_thingy_clean[[2]],sep = "", collapse = "")
+```
+
+
+A vector of length 1 with the entire sequence in a single element of the vector
+```{r}
+prot1_str
+```
+
+
+Protein alignments need a amino acid transition matrix, and we need to use data() to bring those up into active memory (VERY IMPORTANT STEP!)
+
+```{r}
+data(BLOSUM50)
+```
+
+The alignment
+```{r}
+align_out <- Biostrings::pairwiseAlignment(pattern = prot1_str, 
+                              subject = prot2_str, 
+                              type = "global",
+                              gapOpening = -9.5,
+                              gapExtension = -0.5)
+```
+
+The raw output, which is not very informative yet
+```{r}
+align_out
+```
+
+
+The full alignment is shown below. There are a LOT os gaps because these are two random sequences
+```{r}
+
+compbio4all::print_pairwise_alignment(align_out)
+
+```
+
+These are two randomly chosen sequences, so the alignment should be pretty bad because we expect there to just be some random points where they match up.
+
+The score is negative,  but on its own that is hard to interpret. Even good alignments can be negative
+```{r}
+score(align_out)
+```
+
+pid gives us a better sense of how well the sequences match
+```{r}
+pid(align_out)
+
+```
+
+Of course, pid can be calculated several ways (WHY IS THIS AN ISSUE / POSSIBLE?)
+```{r}
+pid(align_out,type = "PID1")
+pid(align_out,type = "PID2")
+pid(align_out,type = "PID3")
+pid(align_out,type = "PID4")
+```
+

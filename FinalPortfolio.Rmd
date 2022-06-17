@@ -1,0 +1,871 @@
+---
+title: "Final Portfolio"
+author: "Angela Tseng"
+date: "12/16/2021"
+output: html_document
+---
+
+# Introduction
+
+This code contains summary information about the tyr gene.
+
+It also builds an MSA and phylogenetic tree to show the evolutionary relationship between the human version of this gene and its homologs in other species.
+
+## Resources / References
+
+Key information use to make this script can be found here:
+
+Refseq Gene: https://www.ncbi.nlm.nih.gov/gene/339479
+Refseq Homologene: https://www.ncbi.nlm.nih.gov/homologene/17786
+
+Other resources consulted includes:
+
+Neanderthal genome: http://neandertal.ensemblgenomes.org/index.html
+
+Other interesting resources and online tools include:
+
+REPPER: https://toolkit.tuebingen.mpg.de/jobs/7803820
+Sub-cellular locations prediction: https://wolfpsort.hgc.jp/
+
+# Preparation
+
+Load necessary packages:
+
+Download and load drawProteins from Bioconductor
+
+```{r, message= F, warning=F}
+
+library(BiocManager)
+#install("drawProteins")
+library(drawProteins)
+
+```
+
+Load other packages:
+
+```{r, message= F, warning=F}
+
+# github packages
+library(compbio4all)
+library(ggmsa)
+
+# CRAN packages
+library(rentrez)
+library(seqinr)
+library(ape)
+library(pander)
+
+
+library(ggplot2)
+
+
+library(msa)
+library(drawProteins)
+
+# Biostrings
+library(Biostrings)
+
+
+library(HGNChelper)
+```
+
+
+# Accession numbers
+
+Accession numbers were obtained from RefSeq, Refseq Homlogene, UniProt and PDB. UniProt accession numbers can be found by searching for the gene name. PDB accessions can be found by searching with a UniProt accession or a gene name, though many proteins are not in PDB. The Neanderthal genome database was searched but did not yield sequence information on tyr.
+
+A protein BLAST search (https://blast.ncbi.nlm.nih.gov/Blast.cgi?PROGRAM=blastp&PAGE_TYPE=BlastSearch&LINK_LOC=blasthome) was carried out excluding vertebrates to determine if it occurred outside of vertebreates. The gene does not appear in non-vertebrates and so a second search was conducted to exclude mammals.
+
+## Accession number table
+Not available:
+
+Neanderthal
+
+Does not occur:
+
+Outside of vertebrates
+
+```{r}
+
+#Creating table
+
+tyr_table <- c(
+"NP_000363.1","P14679","NA","Homo sapiens","human","tyr",
+"NP_035791.1", "P11344","NA","Mus musculus","house mouse", "tyr",
+"NP_571088.3","NA","NA","Danio rerio","zebrafish", "tyr",   
+"NP_001101005.1","D4A9G4","NA","Rattus norvegicus","Norway rat","tyr",
+"NP_989491.1", "P55024", "NA", "Gallus gallus","chicken","tyr",   
+"XP_003992691.2","NA","NA","Felis catus","domestic cat", "tyr",
+"XP_001136041.2","NA","NA","Pan troglodytes","chimpanzee","tyr",
+"XP_006075241.1","NA","NA","Bubalus bubalis","water buffalo","tyr", 
+"XP_003468651.1", "A0A6J1U8X2", "NA", "Cavia porcellus",  "domestic guinea pig", "tyr",
+"XP_001492610.4","NA","NA","Equus caballus","horse","tyr")
+
+```
+
+```{r}
+
+# Converts all tyr table information into matrix format
+
+tyr_table_matrix <- matrix(tyr_table,
+                                  byrow = T,
+                                  nrow = 10)
+
+tyr_table <- data.frame(tyr_table_matrix, 
+                     stringsAsFactors = F)
+
+names(tyr_table) <- c("ncbi.protein.accession", "UniProt.id","PDB", "species", "common.name", "gene.name")
+
+```
+
+```{r}
+
+#Printing table
+
+pander(tyr_table)
+
+```
+
+## Data Preparation
+
+```{r}
+
+#Downloading all FASTA sequences using compbio4all::entrez_fetch_list() which uses rentrez::entrez_fetch() to access NCBI databases.
+
+tyr <- rentrez::entrez_fetch(db = "protein", 
+                          id = tyr_table$ncbi.protein.accession, 
+                          rettype = "fasta")
+
+```
+
+```{r}
+
+#This assigns data to the variable tyr_list
+
+tyr_list <- entrez_fetch_list(db = "protein", 
+                          id = tyr_table$ncbi.protein.accession, 
+                          rettype = "fasta")
+
+```
+
+```{r}
+
+#Number of FASTA files
+
+length(tyr_list)
+
+#First entry
+
+tyr_list[[1]]
+
+```
+
+## Initial data cleaning
+
+```{r}
+
+#This removes the FASTA header, but additional cleaning steps will be required for particular analyses
+
+for(i in 1:length(tyr_list)){
+  tyr_list[[i]] <- compbio4all::fasta_cleaner(tyr_list[[i]], parse = F)
+}
+
+```
+
+# General protein information
+
+```{r}
+
+#Downloads from uniprot
+
+P14679_tyr  <- drawProteins::get_features("P14679")
+is(P14679_tyr)
+
+```
+
+```{r}
+
+#Create dataframe
+
+huUni_df <- drawProteins::feature_to_dataframe(P14679_tyr)
+is(huUni_df)
+
+#View dataframe
+
+huUni_df[,-2]
+
+```
+
+## Protein diagram
+
+```{r}
+
+#This protein has one domain
+
+my_canvas <- draw_canvas(huUni_df)  
+my_canvas <- draw_chains(my_canvas, huUni_df, 
+                         label_size = 2.5)
+my_canvas <- draw_domains(my_canvas, huUni_df)
+my_canvas
+
+```
+
+# Dotplot
+
+```{r}
+
+#Creates vector
+
+hutyr_vector <- compbio4all:: fasta_cleaner(tyr_list[[1]])
+
+```
+
+
+```{r}
+
+#Defult dotplot
+
+seqinr::dotPlot(hutyr_vector,
+                hutyr_vector)
+
+```
+
+```{r}
+
+#2x2 panel showing different values for dotplot settings
+
+par(mfrow = c(2,2), 
+    mar = c(0,0,2,1))
+
+#Plot 1: tyr - Defaults
+dotPlot(hutyr_vector, 
+        hutyr_vector, 
+        wsize = 1, 
+        nmatch = 1, 
+        main = "tyr Defaults")
+
+#Plot 2: tyr - size = 10, nmatch = 1
+dotPlot(hutyr_vector, hutyr_vector, 
+        wsize = 10, 
+        nmatch = 1, 
+        main = "tyr - size = 10, nmatch = 1")
+
+#Plot 3: tyr - size = 10, nmatch = 5
+dotPlot(hutyr_vector, hutyr_vector, 
+        wsize = 10, 
+        nmatch = 5, 
+        main = "tyr - size = 10, nmatch = 5")
+
+#Plot 4: tyr size = 20, nmatch = 5
+dotPlot(hutyr_vector, hutyr_vector, 
+        wsize = 20,
+        nmatch =5,
+        main = "tyr - size = 20, nmatch = 5")
+
+```
+
+```{r}
+
+#Best plot using normal dotplot
+
+par(mfrow = c(1,1), 
+    mar = c(4,4,4,4))
+
+dotPlot(hutyr_vector, 
+        hutyr_vector,
+        wsize = 10, 
+        nmatch = 5, 
+        main = "tyr window = 10, nmatch = 5")
+
+```
+
+# Protein properties compiled from databases
+
+```{r}
+
+databases <- c("Pfam", "Disprot", "RepeatsDB", "Uniprot", "PDB")
+
+info <- c("The tyr gene has two domains: MACPF and BRINP", "NA", "NA", "The subcellular location is the mitochondrion", "NA")
+
+databasedf <- data.frame(databases,
+                         info)
+pander(databasedf)
+
+```
+
+# Protein feature prediction
+
+Multivariate statistical techniques were used to confirm the information about protein structure and location in the online database.
+
+Uniprot (which uses http://www.csbio.sjtu.edu.cn/bioinf/Cell-PLoc-2/) indicates that the protein is a secreted: found outside of the cell membrane.
+
+## Predict protein fold
+
+```{r}
+
+#Make 2 vectors of amino acids and check to make sure they are the same length and contain the same valiues
+
+aa.1.1 <- c("A","R","N","D","C","Q","E","G","H","I",
+            "L","K","M","F","P","S","T","W","Y","V")
+
+aa.1.2 <- c("A","R","N","D","C","Q","E","G","H","I",
+            "L","K","M","F","P","S","T","W","Y","V")
+
+length(aa.1.1) == length(aa.1.2)
+
+aa.1.1 == aa.1.2
+
+```
+
+```{r}
+
+# Shows how many unique values are present and that they both have the same number of unique values
+
+unique(aa.1.1)
+
+length(unique(aa.1.1)) == length(unique(aa.1.2))
+
+```
+
+```{r}
+
+#Creates vector of the frequency of each amino acid in the database of proteins of each type used by Chou, and checks against Chou's total
+
+alpha <- c(285, 53, 97, 163, 22, 67, 134, 197, 111, 91, 
+           221, 249, 48, 123, 82, 122, 119, 33, 63, 167)
+
+sum(alpha) == 2447
+
+```
+
+```{r}
+
+#Does same thing with beta proteins
+
+beta <- c(203, 67, 139, 121, 75, 122, 86, 297, 49, 120, 
+          177, 115, 16, 85, 127, 341, 253, 44, 110, 229)
+
+sum(beta) == 2776
+
+```
+
+```{r}
+
+#Does same thing with alpha plus beta proteins
+
+a.plus.b <- c(175, 78, 120, 111, 74, 74, 86, 171, 33, 93,
+              110, 112, 25, 52, 71, 126, 117, 30, 108, 123)
+
+sum(a.plus.b) == 1889
+
+```
+
+```{r}
+
+#Does same thing with alpha divided by beta proteins
+
+a.div.b <- c(361, 146, 183, 244, 63, 114, 257, 377, 107, 239, 
+             339, 321, 91, 158, 188, 327, 238, 72, 130, 378)
+
+sum(a.div.b) == 4333
+
+```
+
+```{r}
+
+#Creates dataframe of data
+
+czdf <- data.frame(aa.1.1, alpha, beta, a.plus.b, a.div.b)
+
+```
+
+```{r}
+#Prints dataframe
+
+pander(czdf)
+
+```
+
+```{r}
+
+#Calculates proportions for each of the four protein fold types
+
+alpha.prop <- alpha/sum(alpha)
+beta.prop <- beta/sum(beta)
+a.plus.b.prop <- a.plus.b/sum(a.plus.b)
+a.div.b <- a.div.b/sum(a.div.b)
+
+```
+
+```{r}
+
+#Create dataframe and row labels
+
+aa.prop <- data.frame(alpha.prop,
+                      beta.prop,
+                      a.plus.b.prop,
+                      a.div.b)
+
+row.names(aa.prop) <- aa.1.1
+
+```
+
+```{r}
+
+#Prints dataframe
+
+pander(aa.prop)
+
+```
+
+```{r}
+
+#Detemines number of each amino acid in protein 
+
+table(hutyr_vector)
+
+```
+
+```{r}
+
+#A function to convert a table into a vector
+
+table_to_vector <- function(table_x){
+  table_names <- attr(table_x, "dimnames")[[1]]
+  table_vect <- as.vector(table_x)
+  names(table_vect) <- table_names
+  return(table_vect)
+}
+
+```
+
+```{r}
+
+#Creates a table of amino acid frequences, and converts this to a vector
+
+tyr_human_table <- table(hutyr_vector)/length(hutyr_vector)
+tyr.human.aa.freq <- table_to_vector(tyr_human_table)
+tyr.human.aa.freq
+
+```
+
+```{r}
+
+#Checks for the presence of U, an unknown amino acid
+
+aa.names <- names(tyr.human.aa.freq)
+any(aa.names == "U")
+
+```
+
+```{r}
+
+#Previous test returns "False", indicating no "U" present; can add protein to frequency table
+
+aa.prop$tyr.human.aa.freq <- tyr.human.aa.freq
+pander::pander(aa.prop)
+
+```
+
+## Functions to calculate similarities
+
+```{r}
+
+#Creates two custom functions: the first one calculates correlates between two columns of our table, and the second one to calculates correlation similarities
+
+chou_cor <- function(x,y){
+  numerator <- sum(x*y)
+denominator <- sqrt((sum(x^2))*(sum(y^2)))
+result <- numerator/denominator
+return(result)
+}
+
+chou_cosine <- function(z.1, z.2){
+  z.1.abs <- sqrt(sum(z.1^2))
+  z.2.abs <- sqrt(sum(z.2^2))
+  my.cosine <- sum(z.1*z.2)/(z.1.abs*z.2.abs)
+  return(my.cosine)
+}
+
+```
+
+```{r}
+
+#Calculates and displays correlation between each column
+
+corr.alpha <- chou_cor(aa.prop[,5], aa.prop[,1])
+corr.beta  <- chou_cor(aa.prop[,5], aa.prop[,2])
+corr.apb   <- chou_cor(aa.prop[,5], aa.prop[,3])
+corr.adb   <- chou_cor(aa.prop[,5], aa.prop[,4])
+
+corr.alpha
+corr.beta
+corr.apb
+corr.adb
+
+```
+
+```{r}
+
+#Calculates and displays cosine similarity
+
+cos.alpha <- chou_cosine(aa.prop[,5], aa.prop[,1])
+cos.beta  <- chou_cosine(aa.prop[,5], aa.prop[,2])
+cos.apb   <- chou_cosine(aa.prop[,5], aa.prop[,3])
+cos.adb   <- chou_cosine(aa.prop[,5], aa.prop[,4])
+
+cos.alpha
+cos.beta
+cos.apb
+cos.adb
+
+```
+
+```{r}
+
+#Calculates Euclidean distance
+
+aa.prop.flipped <- t(aa.prop)
+round(aa.prop.flipped,2)
+
+```
+
+```{r}
+
+#Calculates distance matrix
+
+dist(aa.prop.flipped, method = "euclidean")
+
+```
+
+```{r}
+
+#Calculates and displays individual distances
+
+dist.alpha <- dist((aa.prop.flipped[c(1,5),]),  method = "euclidean")
+dist.beta  <- dist((aa.prop.flipped[c(2,5),]),  method = "euclidean")
+dist.apb   <- dist((aa.prop.flipped[c(3,5),]),  method = "euclidean")
+dist.adb  <- dist((aa.prop.flipped[c(4,5),]), method = "euclidean")
+
+dist.alpha
+dist.beta
+dist.apb
+dist.adb
+
+```
+
+```{r}
+
+#Compiles information and rounds it, making it easier to read
+
+fold.type <- c("alpha","beta","alpha plus beta", "alpha/beta")
+
+corr.sim <- round(c(corr.alpha,corr.beta,corr.apb,corr.adb),5)
+cosine.sim <- round(c(cos.alpha,cos.beta,cos.apb,cos.adb),5)
+Euclidean.dist <- round(c(dist.alpha,dist.beta,dist.apb,dist.adb),5)
+
+sim.sum <- c("","","most.sim","")
+dist.sum <- c("","","min.dist","")
+
+df2 <- data.frame(fold.type,
+           corr.sim ,
+           cosine.sim ,
+           Euclidean.dist ,
+           sim.sum ,
+           dist.sum )
+
+```
+
+```{r}
+
+pander(df2)
+
+```
+
+# Percent Identity Comparisons (PID)
+
+## Data Preparation
+
+```{r}
+
+#Information about list formed at beginning of workflow
+
+names(tyr_list)
+length (tyr_list)
+tyr_list[[1]]
+
+```
+
+```{r}
+
+#Creates and prints empty vector
+
+tyr_vector <- rep(NA, length(tyr_list))
+tyr_vector
+
+```
+
+```{r}
+
+#Populates the vector
+
+for(i in 1:length(tyr_vector)){
+  tyr_vector[i] <- tyr_list[[i]]
+}
+
+```
+
+```{r}
+
+#Names the vector
+
+names(tyr_vector) <- names(tyr_list)
+
+```
+
+```{r}
+
+#Turns sequences into vectors
+
+humantyr  <- fasta_cleaner(tyr_list[[1]], parse = F)
+chimpanzeetyr <- fasta_cleaner(tyr_list[[7]], parse = F)
+housemousetyr  <- fasta_cleaner(tyr_list[[2]], parse = F)
+buffalotyr   <- fasta_cleaner(tyr_list[[8]], parse = F)
+
+```
+
+```{r}
+
+#Performs global pairwise alignments on sequences
+
+align.human.vs.chimp <- Biostrings::pairwiseAlignment(
+                  humantyr,
+                  chimpanzeetyr)
+align.human.vs.housemouse <- Biostrings::pairwiseAlignment(
+                  humantyr,
+                  housemousetyr)
+align.human.vs.buffalo <- Biostrings::pairwiseAlignment(
+                  humantyr,
+                  buffalotyr)
+
+```
+
+## PID Table
+
+```{r}
+
+#Prints percent sequence alignment   
+
+Biostrings::pid(align.human.vs.chimp)
+
+Biostrings::pid(align.human.vs.housemouse)
+
+Biostrings::pid(align.human.vs.buffalo)
+
+```
+
+```{r}
+
+#Global pairwise alignments for matrix
+
+align.chimp.vs.housemouse <- Biostrings::pairwiseAlignment(
+                  chimpanzeetyr,
+                  housemousetyr)
+
+align.chimp.vs.buffalo <- Biostrings::pairwiseAlignment(
+                  chimpanzeetyr,
+                  buffalotyr)
+
+align.housemouse.vs.buffalo <- Biostrings::pairwiseAlignment(
+                  housemousetyr,
+                  buffalotyr)
+
+```
+
+```{r}
+
+#Builds a matrix of PID
+
+pids <- c(1,                  NA,     NA,     NA,
+          pid(align.human.vs.chimp),          1,     NA,     NA,
+          pid(align.human.vs.housemouse), pid(align.chimp.vs.housemouse),      1,     NA,
+          pid(align.human.vs.buffalo), pid(align.chimp.vs.buffalo), pid(align.housemouse.vs.buffalo), 1)
+
+mat <- matrix(pids, nrow = 4, byrow = T)
+row.names(mat) <- c("Homo","Pan","Mus","Bos")   
+colnames(mat) <- c("Homo","Pan","Mus","Bos")   
+pander::pander(mat)  
+
+```
+
+## PID Methods Comparison
+
+```{r}
+
+#Generates comparisons between humans and chimps using different methods
+
+PID1 <- pid(align.human.vs.chimp, type = "PID1")
+PID2 <- pid(align.human.vs.chimp, type = "PID2")
+PID3 <- pid(align.human.vs.chimp, type = "PID3")
+PID4 <- pid(align.human.vs.chimp, type = "PID4")
+
+```
+
+```{r}
+
+#Generates dataframe 
+
+method <- c("PID1", "PID2", "PID3", "PID4")
+
+PID <- c(PID1, PID2, PID3, PID4)
+
+denominator <- c("(aligned positions + internal gap positions)", "(aligned positions)", "(length shorter sequence)", "(average length of the two sequences)")
+
+PIDcompdf <- data.frame(method,
+                        PID,
+                        denominator)
+
+```
+
+```{r}
+
+pander(PIDcompdf)
+
+```
+
+# Multiple Sequence Alignment
+
+## Data preparation
+
+```{r}
+
+#Converts vector into stringset
+
+tyr_vector_ss <- Biostrings::AAStringSet(tyr_vector)
+
+```
+
+## Building Multiple Sequence Alignment (MSA)
+
+```{r}
+
+#Uses defult substitution matrix
+
+tyr_align <- msa(tyr_vector_ss,
+                     method = "ClustalW")
+
+```
+
+## Cleaning / setting up an MSA
+
+```{r}
+
+#Shows information about stringset
+
+class(tyr_align)
+is(tyr_align)
+
+```
+
+```{r}
+
+#Shows defult output of MSA
+
+tyr_align
+
+```
+
+```{r}
+
+#Changes class of alignment
+
+class(tyr_align) <- "AAMultipleAlignment"
+
+```
+
+```{r}
+
+#Converts to seqinr format
+
+tyr_align_seqinr <- msaConvert(tyr_align, 
+                                   type = "seqinr::alignment")
+```
+
+```{r}
+
+#Shows information 
+
+class(tyr_align_seqinr)
+is(tyr_align_seqinr)
+
+```
+
+```{r}
+
+#Displays output
+
+compbio4all::print_msa(tyr_align_seqinr)
+
+```
+
+## Finished MSA
+
+```{r}
+
+#First step very important: changing class of alignment; second step displays MSA
+
+class(tyr_align) <- "AAMultipleAlignment"
+
+ggmsa::ggmsa(tyr_align,
+      start = 125, 
+      end = 175)
+
+```
+
+# Distance Matrix
+
+```{r}
+
+#Calculates genetic distance using MSA
+
+tyr_dist <- seqinr::dist.alignment(tyr_align_seqinr, 
+                                             matrix = "identity")
+
+```
+
+```{r}
+
+#Shows information about distances
+
+is(tyr_dist)
+class(tyr_dist)
+
+```
+
+```{r}
+
+tyr_align_seqinr_rnd <- round(tyr_dist, 3)
+tyr_align_seqinr_rnd
+
+```
+
+# Phylognetic tree of sequences
+
+```{r}
+
+# Function that uses genetic distances to cluster sequences into clades
+
+tree <- nj(tyr_dist)
+
+```
+
+```{r}
+
+# Plots phylogenetic tree and adds a label
+
+plot.phylo(tree, main="Phylogenetic Tree", 
+            use.edge.length = F)
+
+mtext(text = "tyr family gene tree - rooted, no branch lengths")
+
+```

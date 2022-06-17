@@ -1,0 +1,542 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+# Testing the significance of an alignment
+
+```{r eval = T, warnings = F, message = F}
+library(compbio4all)
+library(Biostrings)
+```
+
+
+**By**: Avril Coghlan.  
+Pairwise Sequence Alignment
+https://a-little-book-of-r-for-bioinformatics.readthedocs.io/en/latest/src/chapter4.html
+
+**Adapted, edited and expanded**: Nathan Brouwer under the Creative Commons 3.0 Attribution License [(CC BY 3.0)](https://creativecommons.org/licenses/by/3.0/).  
+
+
+## Calculating the statistical significance of a pairwise global alignment
+
+We have seen that when we align the "PAWHEAE" and "HEAGAWGHEE" protein sequences, they have some similarity, and by selecting a scoring matrix and assigning costs to creation and extension of gaps we can get an alignment **score**.
+
+But is this alignment **statistically significant**? In other words, is this alignment as good or better than we would expect between any two random protein sequences?
+
+The **Needleman-Wunsch** alignment algorithm will produce a global alignment even if we give it two unrelated random protein sequences, although the alignment score would be low.  Stated another way - as long as we give it a valid sequence, it will give us an alignment an a score.  So how do we judge if the answer the algorithm arrived at is any good?  PID gives us a clue, but only a little, because it possible that two random sequences can be identical.
+
+One way to address this question is to ask: is the score for our alignment better than expected between two random sequences?  We can refine this question further by asking: is the score for our alignment better than expected between two random sequences 
+
+* of the *same lengths* and 
+* the same *amino acid compositions*
+
+It is reasonable to expect that if the alignment score is statistically significant, then it will be higher than the scores obtained from aligning pairs of random protein sequences that have the same lengths and amino acid compositions as our original two sequences.
+
+Therefore, to assess if the score for our alignment between the "PAWHEAE" and "HEAGAWGHEE" protein sequence is statistically significant, a first step is to make lots of random sequences that have the same amino acid composition and length as one of our initial two sequences, for example, as the same amino acid composition and length as the sequence "PAWHEAE".
+
+How can we obtain random sequences of the same amino acid composition and length as the sequence "PAWHEAE"? There are several ways to do this.  The simplest is to take the sequence PAWHEAE and reshuffle it to produce sequences with the exact same amino acids just in different orders.  One limitation of this approach is that there is a limit to the number of novel arrangements of the letters PAWHEAE.
+
+We can implement this approach using the sample() function in R.
+
+We can do a single re-shuffle like this:
+```{r}
+# our sequence
+seq_orig <- c("P","A","W","H","E","A","E")
+
+# shulffled
+reshuffled_replaceF <- sample(x = seq_orig,
+                              size = 7,     # size
+                              replace =  F) # replace = F
+reshuffled_replaceF
+```
+
+
+We can make our code a bit more flexible if we want like this by calling the length of our sequence
+```{r}
+reshuffled_replaceF <- sample(x = seq_orig,
+                              size =  length(seq_orig),    #
+                              replace = F)
+```
+
+
+We can do a LOT of reshuffles with a for() loop:
+```{r}
+# I'm repeating the input to make future copying and pasting easier
+seq_orig <- c("P","A","W","H","E","A","E")
+
+# a vector to hold my output
+output_replaceF <- rep(NA, 1000)   # to do
+
+# the loop
+for(i in 1:length(output_replaceF)){  # to do
+  
+  # generate one random sample
+  reshuffled_replaceF <- sample(x = seq_orig,
+                              size = 7,
+                              replace = F)
+  
+  #print(reshuffled_replaceF)
+  # collapse the output into a single string
+  temp <-  paste(reshuffled_replaceF,  # add function
+            sep = "",               # add sep
+            collapse = "")          # add collapse
+  
+  #print(temp)
+  # store the output
+  # ith i-th
+  output_replaceF[i] <- temp
+  
+  #print(i)
+  
+  #print(output_replaceF[1:i])
+  #print("\n\n")
+  
+}
+
+
+```
+
+
+A useful way to explore the output of a for loop is to manually set the value of i to 1 and then run all the code within the loop by hand.  I can then test each part and see its ouptput
+
+```{r}
+# set i to 1
+i <- 1 # 
+
+# the loop, with loopy partws commented out
+#for(i in 1:1000){
+  
+  # generate one random sample
+  reshuffled_replaceF <- sample(x = seq_orig,
+                              size = 7,
+                              replace = F)
+  reshuffled_replaceF
+  
+  # collapse the output into a single string
+  temp <- paste(reshuffled_replaceF, sep = "",collapse = "")
+  
+  temp
+  
+  # store the output
+  output_replaceF[i] <- temp
+  output_replaceF[i]
+  output_replaceF[1:10]
+  output_replaceF[i:10]
+# }
+
+```
+
+I can then change i to 2 and run through things again
+
+```{r}
+# set i to 2
+i <- 2
+
+  reshuffled_replaceF <- sample(x = seq_orig,
+                              size = 7,
+                              replace = F)
+  reshuffled_replaceF
+  
+  temp <- paste(reshuffled_replaceF, sep = "",collapse = "")
+  temp
+  
+  output_replaceF[i] <- temp
+  output_replaceF[i]
+  output_replaceF[2]
+  output_replaceF[1:10]
+```
+
+
+We generated 1000 sequences when we ran the full loop.  But how many are unique? We can see which ones are unique using the unique() command:
+
+```{r}
+table(output_replaceF)
+```
+
+
+```{r, eval = F}
+unique(output_replaceF)  #  add command
+```
+
+
+To save space I'll ust show the first 50 using bracket notation:
+```{r}
+unique(output_replaceF)[1:50]  #  add command
+```
+
+
+We can count up the total number of uniques using length() wrapped around unique()
+```{r}
+length(unique(output_replaceF)) #  add command
+```
+
+Only ~700 are unique.  This is due to the fact that we have a limited number of possibilities for re-arrangement of the given sequence.  
+
+
+### Sampling with versus without replacement  
+
+
+Note that sample() has the argument replace = F.  What happens when we set this to TRUE?
+
+
+The command would look like this:
+```{r}
+sample(x = seq_orig,
+       size = length(seq_orig),
+       replace = T) #  add arguement
+```
+
+And our loop becomes:
+```{r}
+seq_orig <- c("P","A","W","H","E","A","E")
+
+output_replaceT <- rep(NA, 1000)
+  
+for(i in 1:1000){
+reshuffled_replaceT <- sample(x = seq_orig,
+                     size = length(seq_orig),
+                     replace = T)
+temp <- paste(reshuffled_replaceT, sep = "",collapse = "")
+output_replaceT[i] <- temp
+}
+
+```
+
+Note that I can simplify things by omitting my use of the temp object and putting paste on the same line as the assignment to the storage vector
+
+```{r}
+for(i in 1:1000){
+reshuffled_replaceT <- sample(x = seq_orig,
+                     size = length(seq_orig),
+                     replace = T)
+
+  output_replaceT[i] <- paste(reshuffled_replaceT, 
+                              sep = "",
+                              collapse = "")
+  
+}
+```
+
+
+```{r}
+for(i in 1:1000){
+
+  output_replaceT[i] <- paste(sample(x = seq_orig,
+                                     size = length(seq_orig),
+                                     replace = T), 
+                              sep = "",
+                              collapse = "")
+  
+}
+```
+
+
+We generated 1000 sequences.  How many are unique?
+```{r}
+length(unique(output_replaceT))
+```
+
+Almost all are unique.  This is because when sampling with replacement you can re-use any of the amino acids any number of times.  So its possible (though unlikely) to get PPPPPPP, AAAAAAA, WWWWWWW etc, while when sampling without replacement the amino acid composition will ALWAYS be the same as the original sequence.
+
+We can check this using a command that allows us to search for particular letters within character strings called grep()
+
+First, lets check how many of our sampling WITHOUT replacement have P in it.  We do this with grep like this
+
+Regular expression
+grep
+gsub
+
+```{r}
+grep.P.false <- grep("P", output_replaceF) #  add command
+output_replaceF[2]
+```
+
+grep() produces the index of each element of its input that contains the target character, which in this case is P
+
+We can see how many have P using length
+```{r}
+length(grep.P.false)
+```
+
+We can confirm this using a logical check.
+ Double equals signs
+```{r}
+length(output_replaceT) == length(grep.P.false) #  add command
+```
+
+All of the sequences have P. This is how things were set up, since we gave sample() 
+
+* a vector of length 7 as an input 
+* told it to make a new vector of length 7 based on the input
+* told it it couldn't replace a letter after it sampled it
+
+
+How about how many Ps in the output when sampling WITH replacement.
+
+```{r}
+# get the Ps
+grep.P.true <- grep("P",output_replaceT) #  add command
+
+# how many Ps?
+length(grep.P.true)
+```
+
+Only 678 sequence have P of the 1000 total.However, Since not all sequences are unique we need to do this to figure out the proportion (most, but not all, were unique)
+```{r}
+length(grep.P.true)/length(unique(output_replaceT))
+```
+
+
+E occurs twice in our original sequence, so it should occur in random-with-replacement sequences.  Let's check
+
+```{r}
+# where does E occur?
+grep.E.true <-  ("E",output_replaceT) #  add command
+
+# how many Es?
+length(grep.E.true)
+
+# proportion Es
+length(grep.E.true)/length(unique(output_replaceT))
+```
+
+
+
+### Multinomial probability models
+
+Another way is to generate random sequences is using a **multinomial probability model** for protein sequences.
+
+The easiest multinomial model would just be to sample each of the *five* unique amino acids in the five sequence (P, A, W, H, E), with the chance of each one being selected being 1/5.  (note that our sequence has length 7)  We would code this as
+
+```{r}
+sample(x =    c("P", "A", "W", "H", "E"),
+       prob = c(1/5, 1/5, 1/5, 1/5, 1/5),
+              size = 7,
+              #replace = T
+              )
+```
+
+The arguement prob takes a vector of probabilities.
+
+We could simplify it a bit like this using the rep() command to repeat 1/6 6 times.
+
+```{r}
+sample(x = c("P", "A", "W", "H", "E", "A"),
+       size = 7,
+       replace = T,
+       prob = (1/6, 6))  #  add command
+```
+
+We could make the could more general like this:
+
+```{r}
+AAs <- c("P", "A", "W", "H", "E", "A")
+probs <-  (1/length(AAs), length(AAs))   #  add command
+sample(x = AAs,
+       size = length(seq_orig),
+       replace = T,
+       prob = probs)
+```
+
+
+
+We could improve this process by setting the probabilities of the different amino acids set to be equal to their frequencies in the sequence "PAWHEAE".  This means that since A and E occur twice in the original sequence, they more likely to occur twice in the randomly generated sequences.
+
+That is, we can generate sequences using a multinomial model for proteins, in which the probabilities are
+
+* "P" is set to 0.1428571 (1/7)
+* the probability of "A" is set to 0.2857143 (2/7)
+* the probability of "W" is set to 0.1428571 (1/7); 
+* the probability of "H’ is set to 0.1428571 (1/7);  
+* the probability of ‘E’ is set to 0.2857143 (2/7), 
+* and the probabilities of the other 15 amino acids are set to 0.
+
+To generate a sequence with this multinomial model, we choose the letter for each position in the sequence according to those probabilities. This is as if we have made a roulette wheel in which 1/7*th* of the circle is taken up by a pie labeled “P”, 2/7*ths* by a pie labeled “A”, 1/7*th* by a pie labeled “W”, 1/7*th* by a pie labeled “H”, and 2/7*ths* by a pie labeled “E”:
+
+To generate a sequence using the multinomial model, we keep spinning the arrow in the center of the roulette wheel, and write down the letter that the arrow stops on after each spin. To generate a sequence that is 7 letters long, we can spin the arrow 7 times. To generate 1000 sequences that are each 7 letters long, we can spin the arrow 7000 times, where the letters chosen form 1000 7-letter amino acid sequences.
+
+To generate a certain number (eg.1000) random amino acid sequences of a certain length using a multinomial model, you can use the function `make_seqs_multinom_mod()` below:
+
+
+The  function written by Avril Coghlan and contained in compbio4all `make_seqs_multinom_mod()` generates X random sequences with a multinomial model, where the probabilities of the different letters are set equal to their frequencies in an input sequence, which is passed to the function as a string of characters (eg. "PAWHEAE").
+
+The function returns X random sequences in the form of a vector which has X elements, the first element of the vector contains the first sequence, the second element contains the second sequence, and so on.
+
+
+We can use this function to generate 1000 7-letter amino acid sequences using a multinomial model in which the probabilities of the letters are set equal to their frequencies in "PAWHEAE" (i.e. probabilities 1/7 for P, 2/7 for A, 1/7 for W, 1/7 for H and 2/7 for E), by typing:
+
+```{r}
+randomseqs <- ('PAWHEAE',1000)  #  add command
+randomseqs[1:10] # Print out the first 10 random sequences
+
+```
+
+The 1000 random sequences are stored in a vector `randomseqs` that has 1000 elements, each of which contains one of the random sequences.
+
+
+Let's see how many unique sequences are generated. 
+```{r}
+length(unique(randomseqs))
+```
+
+Do you notice anything about the output?  It should be about the same as for our previous sampling without replacement.  Indeed, all we've done here is built a more formal mathematical **parameterization** of the sampline process.
+
+
+### Analysis of score distribution
+
+We can then use the Needleman-Wunsch algorithm to align the sequence "HEAGAWGHEE" to one of the 1000 random sequences generated using the multinomial model with probabilities 1/7 for P, 2/7 for A, 1/7 for W, 1/7 for H and 2/7 for E.
+
+For example, to align "HEAGAWGHEE" to the first of the 1000 random sequences ("EEHAAAE"), we can make a sequence vector:
+
+```{r}
+s4 <- "HEAGAWGHEE"
+```
+
+Then align this sequence with our first randomly generated sequence.
+```{r}
+Biostrings::pairwiseAlignment(s4, randomseqs[1], 
+                              substitutionMatrix = "BLOSUM50", 
+                              gapOpening = -10,
+                              gapExtension = -2, 
+                              scoreOnly = FALSE)
+```
+
+If we use the `pairwiseAlignment()` function with the argument `scoreOnly=TRUE`, it will just give us the score for the alignment:
+
+```{r}
+pairwiseAlignment(s4, randomseqs[1], 
+                  substitutionMatrix = "BLOSUM50",
+                  gapOpening = -10,
+                  gapExtension = -2, 
+                  scoreOnly = TRUE)
+
+```
+
+If we repeat this 1000 times, that is, for each of the 1000 random sequences in vector randomseqs, we can get a distribution of alignment scores expected for aligning "HEAGAWGHEE" to random sequences of the same length and (approximately the same) amino acid composition as "PAWHEAE".
+
+First, we compare PAWHEAE to HEAGAWGHEE
+
+```{r}
+Biostrings::pairwiseAlignment(s4, "PAWHEAE", 
+                                         substitutionMatrix = "BLOSUM50",
+                                         gapOpening = -10, 
+                                         gapExtension = -2,
+                                         scoreOnly = TRUE)
+```
+
+
+We can then compare the actual score for aligning "PAWHEAE" to "HEAGAWGHEE" (i.e. 5) to the distribution of scores for aligning "HEAGAWGHEE" to the random sequences.
+
+The code above first uses the `rep`()` function to create a numeric vector `randomscores` for storing real numbers (i.e. not integers), with 1000 elements. This will be used to store the alignment scores for 1000 alignments between "HEAGAWGHEE" and the 1000 different random sequences generated using the multinomial model.
+
+The for loop takes each of the 1000 different random sequences, aligns each one to "HEAGAWGHEE", and stores the 1000 alignment scores in the `randomscores` vector.
+
+```{r}
+randomscores <- rep(NA, ) # Create a numeric vector with 1000 elements
+for (i in 1:) # loop 1000 times
+{
+  score <- Biostrings::pairwiseAlignment(s4, randomseqs[i], 
+                                         substitutionMatrix = "BLOSUM50",
+                                         gapOpening = -10, 
+                                         gapExtension = -2,
+                                         scoreOnly = TRUE)
+  randomscores[i] <- score
+}
+
+```
+
+
+Once we have run the for loop, we can make a histogram plot of the 1000 scores in vector randomscores by typing:
+
+```{r}
+(randomscores, col="red") # Draw a red histogram
+```
+
+We can make the plot easier to understand by adding a line for our reference score
+
+```{r}
+(randomscores, col="red") # Draw a red histogram
+(v = 5, col = 1)
+```
+
+
+
+We can see from the histogram that some of the random sequences seem to have higher alignment scores than 5 when aligned to "HEAGAWGHEE" (where 5 is the alignment score for "PAWHEAE" and "HEAGAWGHEE").
+
+
+
+We can use the vector randomscores of scores for 1000 alignments of random sequences to "HEAGAWGHEE" to calculate the probability of getting a score as large as the real alignment score for "PAWHEAE" and "HEAGAWGHEE" (i.e. 5) by chance.
+
+First, we can test which scores are greater than 5
+```{r}
+randomscores > 5
+```
+
+This gives us TRUE/FALSE response.  We can add them up like this
+
+```{r}
+greater5 <- sum(randomscores > 5)
+```
+
+The frequency of scores exactly equal to 5 is
+```{r}
+greater5/length(randomscores)
+```
+
+We can frame this as a probability: there is 0.127 probability that the score will be great than 5.
+
+We can also test which ones are exactly equal to  5 
+
+```{r}
+randomscores   5 #  add command
+```
+
+Add them up with sum
+
+```{r}
+equals5 <- sum(randomscores   5) #  add command
+```
+
+And get the frequency 
+```{r}
+equals5/length(randomscores)
+```
+
+This is pretty rare, but still happens.
+
+We can do this all in one line like this
+(note - equals sign MUST commaa after the greater-than sign)
+```{r}
+randomscores   5 #  add command
+```
+
+
+What we want to know is the total number of scores are >= 5, so we can wrap the logical evaluation code in sum()  
+```{r}
+sum(randomscores   5) #  add command
+```
+
+
+We see that ~150 of the 1000 alignments of random sequences to "HEAGAWGHEE" had alignment scores that were equal to or greater than 5. Thus, we can estimate that the probability of getting a score as large as the real alignment score by chance is (great OR equal/1000) 
+
+```{r}
+equals5/length(randomscores) + greater5/length(randomscores)
+
+sum(randomscores >= 5)/length(randomscores) 
+```
+
+In other words, we can calculate a **P-value** of about 0.158. This probability or P-value is quite high (about 15%, or 1 in 7), so we can conclude that it is quite probable that we could get an alignment score as high as 5 by chance alone. This indicates that the sequences "HEAGAWGHEE" and "PAWHEAE" are not more similar than any two random sequences, and so they are probably not related sequences (homologs).
+
+Another way of saying this is that the P-value that we calculated is high (0.143), and as a result we conclude that the alignment score for the sequences "HEAGAWGHEE" and "PAWHEAE" is not statistically significant. Generally, if the P-value that we calculate for an alignment of two sequences is >0.05, we conclude that the alignment score is not statistically significant, and that the sequences are probably not related. On the other hand, if the P-value is less than or equal to 0.05, we conclude that the alignment score is "statistically significant", and the sequences are very probably related (homologous).
+
+
+Note that formal definitions of P values define them as the probability that a value greater than OR equal to the observed occurs.  The OR is easy to forget.
+
+
+
+
+```{r}
+
+```
+
